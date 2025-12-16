@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { AlertTriangle, Lock, User, ArrowRight } from 'lucide-react';
 import ThreatCard from '../components/ThreatCard';
+import config from '../config';
 
 const LoginDemo = () => {
     const [username, setUsername] = useState('');
@@ -41,7 +42,7 @@ const LoginDemo = () => {
 
         try {
             // Sending data to backend to trigger the ML model
-            const response = await axios.post('http://localhost:5000/api/demo-login', {
+            const response = await axios.post(`${config.API_URL}/api/demo-login`, {
                 username,
                 password,
                 attempts: newAttempts,

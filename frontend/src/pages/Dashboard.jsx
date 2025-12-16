@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { ShieldAlert, Activity, Wifi, Server } from 'lucide-react';
 import ThreatCard from '../components/ThreatCard';
+import config from '../config';
 
 const Dashboard = () => {
     const [currentThreat, setCurrentThreat] = useState(null);
@@ -12,12 +13,11 @@ const Dashboard = () => {
 
     useEffect(() => {
         // Initial fetch
-        // Initial fetch
         const fetchThreats = async () => {
             try {
                 const [threatsRes, statsRes] = await Promise.all([
-                    axios.get('http://localhost:5000/api/threats'),
-                    axios.get('http://localhost:5000/api/stats')
+                    axios.get(`${config.API_URL}/api/threats`),
+                    axios.get(`${config.API_URL}/api/stats`)
                 ]);
 
                 const threats = threatsRes.data;
@@ -45,7 +45,7 @@ const Dashboard = () => {
         fetchThreats();
 
         // WebSocket setup
-        const socket = io('http://localhost:5000', {
+        const socket = io(config.API_URL, {
             transports: ['websocket', 'polling']
         });
 

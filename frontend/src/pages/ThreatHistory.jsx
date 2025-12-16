@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Shield, AlertTriangle, RefreshCw, Search } from 'lucide-react';
+import config from '../config';
 
 const ThreatHistory = () => {
     const [threats, setThreats] = useState([]);
@@ -10,7 +11,7 @@ const ThreatHistory = () => {
     const fetchThreats = async () => {
         setLoading(true);
         try {
-            const res = await axios.get('http://localhost:5000/api/threats');
+            const res = await axios.get(`${config.API_URL}/api/threats`);
             // Sort by timestamp descending
             const sortedThreats = res.data.sort((a, b) =>
                 new Date(b.timestamp) - new Date(a.timestamp)

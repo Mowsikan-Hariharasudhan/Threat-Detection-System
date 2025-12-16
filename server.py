@@ -9,31 +9,12 @@ from datetime import datetime
 import os
 from db import db_manager
 
-# Import from main.py
-try:
-    from main import CybersecurityThreatDetector
-    HAS_ML_MODELS = True
-except ImportError as e:
-    print(f"Warning: Could not import ML models: {e}")
-    HAS_ML_MODELS = False
+# ML models removed as per user request
+HAS_ML_MODELS = False
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*")
-
-detector = None
-if HAS_ML_MODELS:
-    detector = CybersecurityThreatDetector()
-    try:
-        if os.path.exists("./models") and len(os.listdir("./models")) > 0:
-            detector.load_models()
-        else:
-            print("Training models...")
-            detector.train()
-            detector.save_models()
-    except Exception as e:
-        print(f"Error initializing models: {e}")
-        HAS_ML_MODELS = False
 
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []

@@ -13,8 +13,15 @@ from db import db_manager
 HAS_ML_MODELS = False
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Allow all origins for CORS
+CORS(app, resources={r"/*": {"origins": "*", "allow_headers": "*", "expose_headers": "*"}})
+
+# Initialize SocketIO with permissive CORS
+socketio = SocketIO(app, 
+                   cors_allowed_origins="*", 
+                   logger=True, 
+                   engineio_logger=True,
+                   async_mode='eventlet')
 
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []

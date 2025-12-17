@@ -46,9 +46,7 @@ const Dashboard = () => {
 
         // WebSocket setup
         const socket = io(config.API_URL, {
-            transports: ['websocket', 'polling'],
-            path: '/socket.io/',
-            withCredentials: true,
+            withCredentials: false,
             reconnection: true,
             reconnectionAttempts: 5
         });

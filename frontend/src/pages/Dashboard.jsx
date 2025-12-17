@@ -156,6 +156,10 @@ const Dashboard = () => {
                     </div>
                 )}
             </main>
+            {/* Debug/Version Indicator */}
+            <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.8rem', opacity: 0.7 }}>
+                System Version: 1.0.1 (WebSocket Only)
+            </div>
         </div>
     );
 };

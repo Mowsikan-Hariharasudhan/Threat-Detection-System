@@ -45,10 +45,10 @@ const Dashboard = () => {
         fetchThreats();
 
         // WebSocket setup
+        // Allow default transports (polling first, then upgrade) for better reliability
         const socket = io(config.API_URL, {
-            // transports: ['websocket', 'polling'], // Let Socket.IO decide best transport
             path: '/socket.io/',
-            withCredentials: false, // Must be false when using wildcard CORS on server
+            withCredentials: false,
             reconnection: true,
             reconnectionAttempts: 10
         });

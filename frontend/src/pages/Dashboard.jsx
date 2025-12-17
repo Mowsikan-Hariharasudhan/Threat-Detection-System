@@ -46,10 +46,11 @@ const Dashboard = () => {
 
         // WebSocket setup
         const socket = io(config.API_URL, {
+            // transports: ['websocket', 'polling'], // Let Socket.IO decide best transport
             path: '/socket.io/',
-            withCredentials: false,
+            withCredentials: false, // Must be false when using wildcard CORS on server
             reconnection: true,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 10
         });
 
         socket.on('connect', () => {

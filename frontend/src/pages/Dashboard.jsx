@@ -44,13 +44,12 @@ const Dashboard = () => {
 
         fetchThreats();
 
-        // WebSocket setup with simplified config to avoid CORS conflicts
+        // WebSocket setup
         const socket = io(config.API_URL, {
             path: '/socket.io/',
             withCredentials: false,
             reconnection: true,
-            reconnectionAttempts: 10,
-            autoConnect: true
+            reconnectionAttempts: 5
         });
 
         socket.on('connect', () => {

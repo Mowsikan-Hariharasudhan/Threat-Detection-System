@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ShieldAlert, Activity, Wifi, Server } from 'lucide-react';
 import ThreatCard from '../components/ThreatCard';
 import config from '../config';
+import { generateSingleThreatReport } from '../utils/pdfGenerator';
 
 const Dashboard = () => {
     const [currentThreat, setCurrentThreat] = useState(null);
@@ -141,10 +142,27 @@ const Dashboard = () => {
                 ) : currentThreat ? (
                     <div className="fade-in">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-                            <h2 style={{ margin: 0 }}>Live Threat Analysis</h2>
-                            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                Last updated: {new Date().toLocaleTimeString()}
-                            </span>
+                            <div>
+                                <h2 style={{ margin: 0 }}>Live Threat Analysis</h2>
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <button
+                                    onClick={() => generateSingleThreatReport(currentThreat)}
+                                    className="btn"
+                                    style={{
+                                        fontSize: '0.85rem',
+                                        padding: '0.4rem 0.8rem',
+                                        backgroundColor: 'var(--bg-card)',
+                                        border: '1px solid var(--border-color)',
+                                        color: 'var(--accent-blue)'
+                                    }}
+                                >
+                                    Download Analysis
+                                </button>
+                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                    Last updated: {new Date().toLocaleTimeString()}
+                                </span>
+                            </div>
                         </div>
                         <ThreatCard threat={currentThreat} />
                     </div>

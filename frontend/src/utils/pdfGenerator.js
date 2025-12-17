@@ -5,10 +5,10 @@ import autoTable from 'jspdf-autotable';
 const getLevelColor = (level) => {
     switch (level?.toUpperCase()) {
         case 'CRITICAL': return [220, 38, 38]; // Red
-        case 'HIGH': return [220, 38, 38];
-        case 'MEDIUM': return [202, 138, 4]; // Yellow/Orange
-        case 'LOW': return [22, 163, 74]; // Green
-        default: return [100, 116, 139]; // Grey
+        case 'HIGH': return [239, 68, 68]; // Light Red
+        case 'MEDIUM': return [234, 179, 8]; // Yellow
+        case 'LOW': return [34, 197, 94]; // Green
+        default: return [148, 163, 184]; // Grey
     }
 };
 
@@ -22,30 +22,25 @@ export const generateGlobalReport = (threats) => {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text("Security Threat Report", 14, 20);
+    doc.text("Security Threat Audit", 14, 20);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-    doc.text("Confidential Security Audit", 196, 20, { align: 'right' });
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text("System Wide Analysis", 196, 20, { align: 'right' });
 
-    // --- Summary Statistics ---
+    // --- Stats ---
     const total = threats.length;
     const critical = threats.filter(t => t.risk_level === 'CRITICAL').length;
-    const high = threats.filter(t => t.risk_level === 'HIGH').length;
 
-    doc.setTextColor(50, 50, 50);
+    doc.setTextColor(30, 41, 59);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text("Executive Summary", 14, 50);
-
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Total Threats Detected: ${total}`, 14, 60);
-    doc.text(`Critical Incidents: ${critical}`, 14, 66);
-    doc.text(`High Priority Risks: ${high}`, 14, 72);
+    doc.text(`Total Events: ${total} | Critical: ${critical}`, 14, 58);
 
-    // --- Data Table ---
     const tableData = threats.map(t => [
         new Date(t.timestamp).toLocaleString(),
         t.risk_level,
@@ -55,188 +50,218 @@ export const generateGlobalReport = (threats) => {
     ]);
 
     autoTable(doc, {
-        startY: 80,
-        head: [['Timestamp', 'Risk Level', 'Threat Type', 'Score', 'Conf.']],
+        startY: 65,
+        head: [['Timestamp', 'Level', 'Type', 'Score', 'Conf.']],
         body: tableData,
         theme: 'grid',
-        styles: {
-            font: 'helvetica',
-            fontSize: 9,
-            cellPadding: 3,
-            textColor: [30, 41, 59]
-        },
-        headStyles: {
-            fillColor: [15, 23, 42],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold'
-        },
-        columnStyles: {
-            0: { cellWidth: 45 },
-            1: { cellWidth: 25, fontStyle: 'bold' },
-            2: { cellWidth: 'auto' },
-            3: { cellWidth: 20, halign: 'center' },
-            4: { cellWidth: 20, halign: 'center' }
-        },
+        headStyles: { fillColor: [15, 23, 42] },
         didParseCell: function (data) {
             if (data.section === 'body' && data.column.index === 1) {
-                const level = data.cell.raw;
-                const color = getLevelColor(level);
-                data.cell.styles.textColor = color;
+                data.cell.styles.textColor = getLevelColor(data.cell.raw);
             }
         }
     });
 
-    // Footer
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Page ${i} of ${pageCount}`, 196, 285, { align: 'right' });
-        doc.text('AI-Powered Threat Detection System', 14, 285);
     }
-
-    doc.save('threat-audit-report.pdf');
+    doc.save('global-threat-report.pdf');
 };
 
 export const generateSingleThreatReport = (threat) => {
     const doc = new jsPDF();
-    const primaryColor = [15, 23, 42]; // Dark Slate
+    const primaryBlue = [15, 23, 42]; // #0f172a
     const accentColor = getLevelColor(threat.risk_level);
 
-    // --- Header Background ---
-    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 50, 'F');
+    // ================= PAGE 1: COVER SHEET =================
 
-    // --- Title & Severity Tag ---
+    // Background Pattern (Subtle strip on left)
+    doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+    doc.rect(0, 0, 210, 297, 'F'); // Full dark background for cover
+
+    // Decorative geometric shapes
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.5);
+    doc.line(20, 20, 190, 20);
+    doc.line(20, 277, 190, 277);
+
+    // Title
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
+    doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
-    doc.text("Incident Verification Report", 14, 25);
+    doc.text("SECURITY INCIDENT", 105, 100, { align: 'center' });
+    doc.text("DETAILED REPORT", 105, 115, { align: 'center' });
 
-    // Severity Badge
+    // Badge
     doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
-    doc.roundedRect(160, 15, 36, 12, 3, 3, 'F');
+    doc.roundedRect(85, 130, 40, 12, 6, 6, 'F');
     doc.setFontSize(10);
-    doc.text(threat.risk_level, 178, 22, { align: 'center' });
+    doc.text(threat.risk_level, 105, 137, { align: 'center' });
 
-    // Sub-header Info
+    // Meta Info
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(203, 213, 225); // Slate-300
+    doc.text(`Incident ID: ${threat.id || 'N/A'}`, 105, 160, { align: 'center' });
+    doc.text(`Detected: ${new Date(threat.timestamp).toLocaleString()}`, 105, 168, { align: 'center' });
+
+    // Bottom Branding
     doc.setFontSize(10);
-    doc.setTextColor(200, 200, 200);
-    doc.text(`Incident ID: ${threat.id}`, 14, 38);
-    doc.text(`Detected: ${new Date(threat.timestamp).toLocaleString()}`, 14, 44);
+    doc.text("Generated by CyberGuard AI", 105, 260, { align: 'center' });
 
-    // --- Threat Details Section ---
-    let yPos = 65;
+    // ================= PAGE 2: EXECUTIVE SUMMARY =================
+    doc.addPage();
 
-    // Threat Type Title
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.setFontSize(18);
+    // Header
+    doc.setFillColor(241, 245, 249); // Slate-100 header
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setFontSize(14);
+    doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(threat.scenario?.type || "Unknown Threat", 14, yPos);
+    doc.text("Executive Analysis", 14, 20);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(threat.scenario?.type || "Unknown Threat Type", 196, 20, { align: 'right' });
+
+    let y = 45;
+
+    // Overview Section
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Incident Overview", 14, y);
+    y += 8;
 
     // Description Box
-    yPos += 10;
-    doc.setFillColor(248, 250, 252); // Light gray bg
-    doc.setDrawColor(226, 232, 240); // Border color
-    doc.roundedRect(14, yPos, 182, 30, 2, 2, 'FD');
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, y, 182, 35, 2, 2, 'S'); // Outline only
 
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(70, 80, 100);
-    const desc = doc.splitTextToSize(threat.scenario?.description || "No detailed description available.", 170);
-    doc.text(desc, 20, yPos + 10);
+    doc.setTextColor(51, 65, 85);
+    const descLines = doc.splitTextToSize(threat.scenario?.description || "No description provided.", 170);
+    doc.text(descLines, 20, y + 10);
 
-    // --- Metrics Section (Risk Score & Confidence) ---
-    yPos += 45;
+    y += 50;
 
-    // Risk Score Box
-    doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
-    doc.setLineWidth(1);
-    doc.roundedRect(14, yPos, 85, 40, 3, 3, 'S');
-
+    // Visual Metrics (Side by Side)
+    // Risk Score
     doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text("Risk Score", 56.5, yPos + 12, { align: 'center' });
-
-    doc.setFontSize(28);
-    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${threat.risk_score}`, 56.5, yPos + 28, { align: 'center' });
+    doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+    doc.text("Risk Assessment", 14, y);
 
-    // Confidence Box
-    doc.setDrawColor(100);
-    doc.roundedRect(111, yPos, 85, 40, 3, 3, 'S');
+    y += 15;
 
+    // Draw Risk Bar
+    doc.setFontSize(10);
+    doc.text("Risk Score", 14, y);
+    doc.setFillColor(226, 232, 240); // Grey track
+    doc.roundedRect(40, y - 4, 100, 4, 2, 2, 'F');
+    doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]); // Colored progress
+    doc.roundedRect(40, y - 4, threat.risk_score, 4, 2, 2, 'F'); // Width = score
+    doc.text(`${threat.risk_score}/100`, 150, y);
+
+    y += 15;
+
+    // Draw Confidence Bar
+    doc.text("AI Confidence", 14, y);
+    doc.setFillColor(226, 232, 240);
+    doc.roundedRect(40, y - 4, 100, 4, 2, 2, 'F');
+    doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]); // Blue progress for confidence
+    doc.roundedRect(40, y - 4, threat.confidence, 4, 2, 2, 'F');
+    doc.text(`${threat.confidence}%`, 150, y);
+
+    y += 30;
+
+    // Technical Details Table
     doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.setFont('helvetica', 'normal');
-    doc.text("AI Confidence", 153.5, yPos + 12, { align: 'center' });
-
-    doc.setFontSize(28);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${threat.confidence}%`, 153.5, yPos + 28, { align: 'center' });
+    doc.text("Technical Indicators", 14, y);
+    y += 5;
 
-    // --- Risk Factors ---
-    yPos += 55;
-    doc.setFontSize(14);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("Risk Factors Analysis", 14, yPos);
-
-    yPos += 10;
-    const factors = threat.risk_factors || {};
-    const factorsData = Object.entries(factors).map(([key, value]) => [
-        key.replace(/_/g, ' ').toUpperCase(),
-        `${value}/5`
+    const riskFactors = threat.risk_factors || {};
+    const techData = Object.entries(riskFactors).map(([k, v]) => [
+        k.replace(/_/g, ' ').toUpperCase(),
+        v >= 4 ? 'High' : v >= 2 ? 'Medium' : 'Low',
+        `${v}/5`
     ]);
 
-    autoTable(doc, {
-        startY: yPos,
-        head: [['Factor', 'Severity']],
-        body: factorsData,
-        theme: 'striped',
-        margin: { left: 14, right: 110 }, // Only take up half width
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [51, 65, 85] }
-    });
+    if (techData.length > 0) {
+        autoTable(doc, {
+            startY: y,
+            head: [['Indicator', 'Severity Class', 'Score']],
+            body: techData,
+            theme: 'grid',
+            headStyles: { fillColor: primaryBlue },
+            styles: { fontSize: 10, cellPadding: 4 },
+            columnStyles: { 0: { fontStyle: 'bold' } }
+        });
+        y = doc.lastAutoTable.finalY + 20;
+    } else {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text("No specific risk factors identified.", 14, y + 10);
+        y += 20;
+    }
 
-    // --- Recommendations ---
-    // Calculate startY based on table height, or fixed if simple
-    // We'll put recommendations on the right side or below depending on space. 
-    // Let's put them below for cleaner flow.
-    yPos = doc.lastAutoTable.finalY + 20;
+    // ================= PAGE 3: REMEDIATION =================
+    doc.addPage();
 
+    // Header
+    doc.setFillColor(241, 245, 249);
+    doc.rect(0, 0, 210, 30, 'F');
     doc.setFontSize(14);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text("Recommended Actions", 14, yPos);
+    doc.text("Remediation Strategy", 14, 20);
 
-    yPos += 10;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
+    y = 45;
 
-    const recs = threat.recommendations || ["No specific recommendations provided."];
-    recs.forEach((rec) => {
-        doc.setTextColor(220, 38, 38); // Bullet color
-        doc.text("•", 14, yPos);
-        doc.setTextColor(70, 80, 100); // Text color
-        doc.text(rec, 20, yPos);
-        yPos += 8;
+    doc.setFontSize(12);
+    doc.text("Recommended Actions", 14, y);
+    y += 10;
+
+    const recs = threat.recommendations || [];
+    recs.forEach((rec, index) => {
+        // Draw Card for each recommendation
+        doc.setDrawColor(226, 232, 240);
+        doc.setFillColor(255, 255, 255);
+
+        // Dynamic height based on text
+        const recLines = doc.splitTextToSize(rec, 170);
+        const cardHeight = (recLines.length * 5) + 15;
+
+        doc.roundedRect(14, y, 182, cardHeight, 2, 2, 'FD'); // Fill and Draw
+
+        // Bullet Icon
+        doc.setFillColor(34, 197, 94); // Green
+        doc.circle(24, y + 8, 3, 'F');
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+        doc.text(recLines, 32, y + 9);
+
+        y += cardHeight + 5;
     });
 
-    // Footer with Watermark
-    doc.setTextColor(240, 240, 240);
-    doc.setFontSize(60);
-    doc.setFont('helvetica', 'bold');
-    doc.text("CONFIDENTIAL", 105, 150, { align: 'center', angle: 45, renderingMode: 'fill' });
+    // Footer on all layout pages
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        if (i === 1) continue; // Skip cover
 
-    // Bottom Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text(`Report generated by AI-Powered Threat Detection System`, 14, 285);
-    doc.text("Strictly for authorized personnel only.", 196, 285, { align: 'right' });
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184); // Slate-400
+        doc.line(14, 280, 196, 280); // Divider line
+        doc.text(`Confidential Analysis - ${threat.id}`, 14, 288);
+        doc.text(`Page ${i} of ${pageCount}`, 196, 288, { align: 'right' });
+    }
 
-    doc.save(`incident-report-${threat.id.slice(0, 8)}.pdf`);
+    doc.save(`incident-report-${threat.id ? threat.id.slice(0, 8) : 'export'}.pdf`);
 };

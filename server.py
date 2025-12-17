@@ -104,6 +104,56 @@ def generate_mock_threat(type="network"):
         "confidence": round(random.uniform(80, 99), 1)
     }
 
+# Email Configuration
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+EMAIL_SENDER = os.getenv('EMAIL_USER')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASS')
+EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', EMAIL_SENDER) # Default to self if not set
+
+def send_alert_email(threat):
+    if not EMAIL_SENDER or not EMAIL_PASSWORD:
+        print("Skipping email alert: Credentials not found.")
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = EMAIL_RECEIVER
+        msg['Subject'] = f"🚨 Security Alert: {threat.get('scenario', {}).get('type', 'Unknown Threat')}"
+
+        body = f"""
+        CYBERGUARD SECURITY ALERT
+        =========================
+        
+        Risk Level: {threat.get('risk_level')}
+        Risk Score: {threat.get('risk_score')}/100
+        Timestamp: {threat.get('timestamp')}
+        
+        Threat Type: {threat.get('scenario', {}).get('type')}
+        Description: {threat.get('scenario', {}).get('description')}
+        
+        Recommended Actions:
+        {chr(10).join(['- ' + r for r in threat.get('recommendations', [])])}
+        
+        --
+        This is an automated message from your Threat Detection System.
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, text)
+        server.quit()
+        print(f"Alert email sent to {EMAIL_RECEIVER}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
 @app.route('/api/demo-login', methods=['POST'])
 def demo_login():
     data = request.json
@@ -112,6 +162,28 @@ def demo_login():
     if attempts >= 3:
         threat = generate_mock_threat("login_bruteforce")
         
+        # --- Automated Response System (>90% Score) ---
+        response_actions = []
+        if threat['risk_score'] > 90:
+            print(f"CRITICAL THREAT DETECTED (Score: {threat['risk_score']}). Initiating automated response...")
+            
+            # Action 1: Block IP (Simulation)
+            threat['mitigation_status'] = "Active"
+            response_actions.append("BLOCK_IP_ADDRESS")
+            
+            # Action 2: Revoke Session (Simulation)
+            response_actions.append("REVOKE_SESSION")
+            
+            # Action 3: Force Password Reset (Simulation)
+            response_actions.append("FORCE_PASSWORD_RESET")
+            
+            # Append actions to threat data for frontend display
+            threat['automated_actions'] = response_actions
+            
+        # Send Email Alert (For ALL threats as requested)
+        # Run in background thread to not block response
+        threading.Thread(target=send_alert_email, args=(threat,)).start()
+
         # Save to DB if connected, else memory
         if db_manager.is_connected:
             db_manager.insert_threat(threat)
@@ -119,7 +191,11 @@ def demo_login():
             THREAT_HISTORY.append(threat)
             
         socketio.emit('new_threat', threat)
-        return jsonify({"status": "threat_detected", "threat": threat})
+        return jsonify({
+            "status": "threat_detected", 
+            "threat": threat,
+            "automated_responses": response_actions if threat['risk_score'] > 90 else []
+        })
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})
 

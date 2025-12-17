@@ -33,13 +33,13 @@ const ThreatCard = ({ threat }) => {
             <Shield size={24} color={levelColor} />
             THREAT DETECTED
           </h2>
-          <span style={{ 
-            backgroundColor: `${levelColor}20`, 
-            color: levelColor, 
-            padding: '0.25rem 0.75rem', 
-            borderRadius: '99px', 
-            fontSize: '0.875rem', 
-            fontWeight: 'bold' 
+          <span style={{
+            backgroundColor: `${levelColor}20`,
+            color: levelColor,
+            padding: '0.25rem 0.75rem',
+            borderRadius: '99px',
+            fontSize: '0.875rem',
+            fontWeight: 'bold'
           }}>
             {risk_level}
           </span>
@@ -63,10 +63,10 @@ const ThreatCard = ({ threat }) => {
               <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{key.replace('_', ' ')}</span>
                 <div style={{ width: '100px', height: '6px', backgroundColor: '#334155', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ 
-                    width: `${(value / 5) * 100}%`, 
-                    height: '100%', 
-                    backgroundColor: levelColor 
+                  <div style={{
+                    width: `${(value / 5) * 100}%`,
+                    height: '100%',
+                    backgroundColor: levelColor
                   }} />
                 </div>
               </div>
@@ -97,23 +97,23 @@ const ThreatCard = ({ threat }) => {
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
           {recommendations && recommendations.map((action, index) => (
-            <div key={index} style={{ 
-              display: 'flex', 
-              gap: '0.75rem', 
-              padding: '0.75rem', 
-              backgroundColor: '#0f172a', 
+            <div key={index} style={{
+              display: 'flex',
+              gap: '0.75rem',
+              padding: '0.75rem',
+              backgroundColor: '#0f172a',
               borderRadius: '0.5rem',
               borderLeft: `3px solid ${levelColor}`
             }}>
-              <span style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                width: '24px', 
-                height: '24px', 
-                backgroundColor: 'var(--bg-card)', 
-                borderRadius: '50%', 
-                fontSize: '0.75rem', 
+              <span style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                backgroundColor: 'var(--bg-card)',
+                borderRadius: '50%',
+                fontSize: '0.75rem',
                 fontWeight: 'bold',
                 flexShrink: 0
               }}>

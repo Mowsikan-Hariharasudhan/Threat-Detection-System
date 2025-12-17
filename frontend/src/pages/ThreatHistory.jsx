@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Shield, AlertTriangle, RefreshCw, Search } from 'lucide-react';
+import { Shield, AlertTriangle, RefreshCw, Search, FileDown } from 'lucide-react';
 import config from '../config';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ThreatHistory = () => {
     const [threats, setThreats] = useState([]);
@@ -38,6 +40,99 @@ const ThreatHistory = () => {
         }
     };
 
+    const generatePDF = () => {
+        const doc = new jsPDF();
+
+        // --- Branding & Header ---
+        // Dark blue header background
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 40, 'F');
+
+        // Title
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Security Threat Report", 14, 20);
+
+        // Subtitle / Date
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+        doc.text("Confidential Security Audit", 196, 20, { align: 'right' });
+
+        // --- Summary Statistics ---
+        const total = threats.length;
+        const critical = threats.filter(t => t.risk_level === 'CRITICAL').length;
+        const high = threats.filter(t => t.risk_level === 'HIGH').length;
+
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Executive Summary", 14, 50);
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Total Threats Detected: ${total}`, 14, 60);
+        doc.text(`Critical Incidents: ${critical}`, 14, 66);
+        doc.text(`High Priority Risks: ${high}`, 14, 72);
+
+        // --- Data Table ---
+        const tableData = threats.map(t => [
+            new Date(t.timestamp).toLocaleString(),
+            t.risk_level,
+            t.scenario?.type || 'Unknown',
+            `${t.risk_score}/100`,
+            `${t.confidence}%`
+        ]);
+
+        autoTable(doc, {
+            startY: 80,
+            head: [['Timestamp', 'Risk Level', 'Threat Type', 'Score', 'Conf.']],
+            body: tableData,
+            theme: 'grid',
+            styles: {
+                font: 'helvetica',
+                fontSize: 9,
+                cellPadding: 3,
+                textColor: [30, 41, 59]
+            },
+            headStyles: {
+                fillColor: [15, 23, 42],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold'
+            },
+            columnStyles: {
+                0: { cellWidth: 45 },
+                1: { cellWidth: 25, fontStyle: 'bold' },
+                2: { cellWidth: 'auto' },
+                3: { cellWidth: 20, halign: 'center' },
+                4: { cellWidth: 20, halign: 'center' }
+            },
+            didParseCell: function (data) {
+                // Color code the Risk Level column
+                if (data.section === 'body' && data.column.index === 1) {
+                    const level = data.cell.raw;
+                    if (level === 'CRITICAL') data.cell.styles.textColor = [220, 38, 38]; // Red
+                    else if (level === 'HIGH') data.cell.styles.textColor = [220, 38, 38];
+                    else if (level === 'MEDIUM') data.cell.styles.textColor = [202, 138, 4]; // Yellow/Orange
+                    else if (level === 'LOW') data.cell.styles.textColor = [22, 163, 74]; // Green
+                }
+            }
+        });
+
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Page ${i} of ${pageCount}`, 196, 285, { align: 'right' });
+            doc.text('AI-Powered Threat Detection System', 14, 285);
+        }
+
+        doc.save('threat-detection-report.pdf');
+    };
+
     const filteredThreats = threats.filter(threat =>
         threat.scenario?.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         threat.risk_level?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -50,10 +145,23 @@ const ThreatHistory = () => {
                     <h1 className="text-gradient">Threat History</h1>
                     <p style={{ color: 'var(--text-secondary)' }}>Comprehensive log of all detected security events</p>
                 </div>
-                <button onClick={fetchThreats} className="btn btn-primary" disabled={loading}>
-                    <RefreshCw size={18} style={{ marginRight: '0.5rem', animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-                    Refresh Log
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={generatePDF} className="btn" style={{
+                        backgroundColor: 'var(--accent-blue)',
+                        color: 'white',
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }}>
+                        <FileDown size={18} />
+                        Download Report
+                    </button>
+                    <button onClick={fetchThreats} className="btn btn-primary" disabled={loading}>
+                        <RefreshCw size={18} style={{ marginRight: '0.5rem', animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                        Refresh Log
+                    </button>
+                </div>
             </header>
 
             <div className="card" style={{ marginBottom: '2rem' }}>

@@ -79,7 +79,7 @@ const Dashboard = () => {
     }, []);
 
     return (
-        <div style={{ minHeight: '100vh', padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div className="container">
             {/* Header */}
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
                 <div>
@@ -90,10 +90,10 @@ const Dashboard = () => {
                     <div className="card" style={{ padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <div style={{
                             width: '10px', height: '10px', borderRadius: '50%',
-                            backgroundColor: isConnected ? 'var(--accent-green)' : 'var(--accent-red)',
-                            boxShadow: isConnected ? '0 0 10px var(--accent-green)' : 'none'
+                            backgroundColor: isConnected ? 'var(--status-low)' : 'var(--status-critical)',
+                            boxShadow: isConnected ? '0 0 10px var(--status-low)' : 'none'
                         }} />
-                        <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: '600', color: isConnected ? 'var(--status-low)' : 'var(--status-critical)' }}>
                             {isConnected ? 'SYSTEM ONLINE' : 'DISCONNECTED'}
                         </span>
                     </div>
@@ -101,33 +101,33 @@ const Dashboard = () => {
             </header>
 
             {/* Stats Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+            <div className="dashboard-grid" style={{ marginBottom: '3rem' }}>
                 <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ padding: '1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', color: 'var(--accent-blue)' }}>
                         <Activity size={24} />
                     </div>
                     <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{stats.total}</div>
+                        <div style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>{stats.total}</div>
                         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Total Threats</div>
                     </div>
                 </div>
 
                 <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', color: 'var(--accent-red)' }}>
+                    <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', color: 'var(--status-critical)' }}>
                         <ShieldAlert size={24} />
                     </div>
                     <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{stats.critical}</div>
+                        <div style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>{stats.critical}</div>
                         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Critical Alerts</div>
                     </div>
                 </div>
 
                 <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ padding: '1rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '0.5rem', color: 'var(--accent-green)' }}>
+                    <div style={{ padding: '1rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '0.5rem', color: 'var(--status-low)' }}>
                         <Server size={24} />
                     </div>
                     <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Active</div>
+                        <div style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>Active</div>
                         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>System Status</div>
                     </div>
                 </div>
@@ -148,14 +148,8 @@ const Dashboard = () => {
                             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                 <button
                                     onClick={() => generateSingleThreatReport(currentThreat)}
-                                    className="btn"
-                                    style={{
-                                        fontSize: '0.85rem',
-                                        padding: '0.4rem 0.8rem',
-                                        backgroundColor: 'var(--bg-card)',
-                                        border: '1px solid var(--border-color)',
-                                        color: 'var(--accent-blue)'
-                                    }}
+                                    className="btn btn-ghost"
+                                    style={{ fontSize: '0.85rem' }}
                                 >
                                     Download Analysis
                                 </button>
@@ -175,7 +169,7 @@ const Dashboard = () => {
                 )}
             </main>
             {/* Debug/Version Indicator */}
-            <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.8rem', opacity: 0.7 }}>
+            <div style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--text-muted)', fontSize: '0.75rem', opacity: 0.7 }}>
                 System Version: 1.0.1 (WebSocket Only)
             </div>
         </div>

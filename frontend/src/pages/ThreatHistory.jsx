@@ -30,10 +30,10 @@ const ThreatHistory = () => {
 
     const getLevelColor = (level) => {
         switch (level?.toUpperCase()) {
-            case 'CRITICAL': return 'var(--accent-red)';
-            case 'HIGH': return 'var(--accent-red)';
-            case 'MEDIUM': return 'var(--accent-yellow)';
-            case 'LOW': return 'var(--accent-green)';
+            case 'CRITICAL': return 'var(--status-critical)';
+            case 'HIGH': return 'var(--status-high)';
+            case 'MEDIUM': return 'var(--status-medium)';
+            case 'LOW': return 'var(--status-low)';
             default: return 'var(--text-secondary)';
         }
     };
@@ -44,26 +44,19 @@ const ThreatHistory = () => {
     );
 
     return (
-        <div style={{ minHeight: '100vh', padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div className="container">
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div>
                     <h1 className="text-gradient">Threat History</h1>
                     <p style={{ color: 'var(--text-secondary)' }}>Comprehensive log of all detected security events</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => generateGlobalReport(threats)} className="btn" style={{
-                        backgroundColor: 'var(--accent-blue)',
-                        color: 'white',
-                        border: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                    }}>
+                    <button onClick={() => generateGlobalReport(threats)} className="btn btn-primary">
                         <FileDown size={18} />
                         Download Global Report
                     </button>
-                    <button onClick={fetchThreats} className="btn btn-primary" disabled={loading}>
-                        <RefreshCw size={18} style={{ marginRight: '0.5rem', animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                    <button onClick={fetchThreats} className="btn btn-ghost" disabled={loading}>
+                        <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                         Refresh Log
                     </button>
                 </div>
@@ -115,7 +108,8 @@ const ThreatHistory = () => {
                                     <td>
                                         <span className="badge" style={{
                                             backgroundColor: `${getLevelColor(threat.risk_level)}20`,
-                                            color: getLevelColor(threat.risk_level)
+                                            color: getLevelColor(threat.risk_level),
+                                            boxShadow: `0 0 10px ${getLevelColor(threat.risk_level)}40`
                                         }}>
                                             {threat.risk_level}
                                         </span>
@@ -127,17 +121,17 @@ const ThreatHistory = () => {
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             <div style={{
-                                                width: '40px',
+                                                width: '60px',
                                                 height: '6px',
-                                                backgroundColor: '#334155',
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
                                                 borderRadius: '3px',
-                                                flexGrow: 1
                                             }}>
                                                 <div style={{
                                                     width: `${threat.risk_score}%`,
                                                     height: '100%',
                                                     backgroundColor: getLevelColor(threat.risk_level),
-                                                    borderRadius: '3px'
+                                                    borderRadius: '3px',
+                                                    boxShadow: `0 0 8px ${getLevelColor(threat.risk_level)}`
                                                 }} />
                                             </div>
                                             <span style={{ fontWeight: 'bold' }}>{threat.risk_score}</span>
@@ -147,14 +141,10 @@ const ThreatHistory = () => {
                                     <td>
                                         <button
                                             onClick={() => generateSingleThreatReport(threat)}
-                                            className="btn"
+                                            className="btn btn-ghost"
                                             style={{
                                                 padding: '0.25rem 0.75rem',
                                                 fontSize: '0.8rem',
-                                                border: '1px solid var(--border-color)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.3rem'
                                             }}
                                         >
                                             <FileText size={14} /> Report
@@ -166,9 +156,6 @@ const ThreatHistory = () => {
                     </tbody>
                 </table>
             </div>
-            <style>{`
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-      `}</style>
         </div>
     );
 };

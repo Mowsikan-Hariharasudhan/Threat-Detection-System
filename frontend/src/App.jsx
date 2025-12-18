@@ -9,44 +9,10 @@ function App() {
     <Router>
       <div className="app-container">
         {/* Navigation for easy switching during demo */}
-        <nav style={{
-          position: 'fixed',
-          top: '1rem',
-          right: '1rem',
-          zIndex: 1000,
-          display: 'flex',
-          gap: '1rem'
-        }}>
-          <Link to="/" className="btn" style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.8)',
-            backdropFilter: 'blur(4px)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-secondary)',
-            fontSize: '0.875rem',
-            padding: '0.5rem 1rem'
-          }}>
-            Dashboard
-          </Link>
-          <Link to="/history" className="btn" style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.8)',
-            backdropFilter: 'blur(4px)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-secondary)',
-            fontSize: '0.875rem',
-            padding: '0.5rem 1rem'
-          }}>
-            Threat History
-          </Link>
-          <Link to="/demo-login" className="btn" style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.8)',
-            backdropFilter: 'blur(4px)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-secondary)',
-            fontSize: '0.875rem',
-            padding: '0.5rem 1rem'
-          }}>
-            Login Demo
-          </Link>
+        <nav className="nav-floating">
+          <Link to="/" className="nav-link">Dashboard</Link>
+          <Link to="/history" className="nav-link">Threat History</Link>
+          <Link to="/demo-login" className="nav-link">Login Demo</Link>
         </nav>
 
         <Routes>

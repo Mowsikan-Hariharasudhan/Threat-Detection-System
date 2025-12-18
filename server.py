@@ -234,8 +234,80 @@ def get_threat_explanation(threat_id):
 
 
 
+@app.route('/api/debug/test-email', methods=['POST'])
+def debug_email():
+    """
+    Debug endpoint to test email configuration and sending.
+    Returns detailed logs of the attempt.
+    """
+    sender = os.getenv('EMAIL_USER')
+    password = os.getenv('EMAIL_PASS')
+    receiver = os.getenv('EMAIL_RECEIVER', sender)
+    
+    if not sender or not password:
+        return jsonify({
+            "status": "error", 
+            "message": "Missing credentials", 
+            "debug": {
+                "EMAIL_USER_SET": bool(sender),
+                "EMAIL_PASS_SET": bool(password)
+            }
+        }), 400
+
+    try:
+        # Construct Test Email
+        msg = MIMEMultipart()
+        msg['From'] = sender
+        msg['To'] = receiver
+        msg['Subject'] = "🧪 CyberGuard AI: Test Email"
+        body = "This is a test email to verify your SMTP configuration is working correctly."
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Connect to Server
+        print(f"Connecting to SMTP server (smtp.gmail.com:587)...")
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.set_debuglevel(1) # Enable verbose output for logs
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        
+        # Login
+        print(f"Attempting login as {sender}...")
+        server.login(sender, password)
+        
+        # Send
+        print(f"Sending mail to {receiver}...")
+        server.sendmail(sender, receiver, msg.as_string())
+        server.quit()
+        
+        return jsonify({
+            "status": "success", 
+            "message": f"Email sent successfully to {receiver}",
+            "config": {"sender": sender, "receiver": receiver}
+        })
+        
+    except smtplib.SMTPAuthenticationError as e:
+        return jsonify({
+            "status": "error",
+            "error_type": "Authentication Failed",
+            "message": "Google refused the login. Ensure you are using an App Password, not your login password.",
+            "details": str(e)
+        }), 401
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error_type": type(e).__name__,
+            "message": str(e)
+        }), 500
+
 if __name__ == '__main__':
     print("Starting Cybersecurity Threat Detection Server...")
+    # Print environment check (Masked)
+    if os.getenv('EMAIL_USER'):
+        print(f"Email Configured: YES (User: {os.getenv('EMAIL_USER')})")
+    else:
+        print("Email Configured: NO (EMAIL_USER not found)")
+
     # Background threat generator disabled as per user request
     # t = threading.Thread(target=background_threat_generator)
     # t.daemon = True

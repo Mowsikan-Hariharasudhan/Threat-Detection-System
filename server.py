@@ -10,6 +10,9 @@ import random
 import uuid
 from datetime import datetime
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from db import db_manager
 
 # ML models removed as per user request
@@ -28,6 +31,52 @@ socketio = SocketIO(app,
 
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []
+
+# Email Configuration
+EMAIL_SENDER = os.getenv('EMAIL_USER')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASS')
+EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', EMAIL_SENDER) # Default to self if not set
+
+def send_alert_email(threat):
+    if not EMAIL_SENDER or not EMAIL_PASSWORD:
+        print("Skipping email alert: Credentials not found.")
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = EMAIL_RECEIVER
+        msg['Subject'] = f"🚨 Security Alert: {threat.get('scenario', {}).get('type', 'Unknown Threat')}"
+
+        body = f"""
+        CYBERGUARD SECURITY ALERT
+        =========================
+        
+        Risk Level: {threat.get('risk_level')}
+        Risk Score: {threat.get('risk_score')}/100
+        Timestamp: {threat.get('timestamp')}
+        
+        Threat Type: {threat.get('scenario', {}).get('type')}
+        Description: {threat.get('scenario', {}).get('description')}
+        
+        Recommended Actions:
+        {chr(10).join(['- ' + r for r in threat.get('recommendations', [])])}
+        
+        --
+        This is an automated message from your Threat Detection System.
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, text)
+        server.quit()
+        print(f"Alert email sent to {EMAIL_RECEIVER}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -107,56 +156,6 @@ def generate_mock_threat(type="network"):
         "confidence": round(random.uniform(80, 99), 1)
     }
 
-# Email Configuration
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-EMAIL_SENDER = os.getenv('EMAIL_USER')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASS')
-EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', EMAIL_SENDER) # Default to self if not set
-
-def send_alert_email(threat):
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
-        print("Skipping email alert: Credentials not found.")
-        return
-
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_SENDER
-        msg['To'] = EMAIL_RECEIVER
-        msg['Subject'] = f"🚨 Security Alert: {threat.get('scenario', {}).get('type', 'Unknown Threat')}"
-
-        body = f"""
-        CYBERGUARD SECURITY ALERT
-        =========================
-        
-        Risk Level: {threat.get('risk_level')}
-        Risk Score: {threat.get('risk_score')}/100
-        Timestamp: {threat.get('timestamp')}
-        
-        Threat Type: {threat.get('scenario', {}).get('type')}
-        Description: {threat.get('scenario', {}).get('description')}
-        
-        Recommended Actions:
-        {chr(10).join(['- ' + r for r in threat.get('recommendations', [])])}
-        
-        --
-        This is an automated message from your Threat Detection System.
-        """
-        
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        text = msg.as_string()
-        server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, text)
-        server.quit()
-        print(f"Alert email sent to {EMAIL_RECEIVER}")
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-
 @app.route('/api/demo-login', methods=['POST'])
 def demo_login():
     data = request.json
@@ -234,8 +233,6 @@ def get_threat_explanation(threat_id):
     if threat:
         return jsonify(threat)
     return jsonify({"error": "Threat not found"}), 404
-
-
 
 @app.route('/api/debug/test-email', methods=['POST'])
 def debug_email():

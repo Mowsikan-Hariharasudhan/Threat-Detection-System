@@ -30,81 +30,142 @@ socketio = SocketIO(app,
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []
 
+# ... imports
+import sys
+
+# ... imports ...
+
 def send_email_alert(threat_data):
     """
     Sends an email alert for a detected threat.
     Runs in a separate thread to avoid blocking the main execution.
     """
     def _send_email_thread(threat):
-        smtp_server = "smtp.gmail.com"
-        port = 587  # For starttls
-        sender_email = os.environ.get("MAIL_USERNAME")
-        password = os.environ.get("MAIL_PASSWORD")
-        receiver_email = os.environ.get("MAIL_RECIPIENT", sender_email) # Default to self if not set
-
-        if not sender_email or not password:
-            print("Email credentials not set. Skipping email alert.")
-            return
-
-        message = MIMEMultipart("alternative")
-        message["Subject"] = f"🚨 ALERT: {threat.get('risk_level', 'UNKNOWN')} Threat Detected - {threat.get('scenario', {}).get('type', 'Unknown')}"
-        message["From"] = sender_email
-        message["To"] = receiver_email
-
-        # Create the HTML version of your message
-        html = f"""\
-        <html>
-          <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
-                <h2 style="color: #dc3545;">Security Incident Detected</h2>
-                <p><strong>System Time:</strong> {threat.get('timestamp')}</p>
-                <hr>
-                
-                <h3 style="color: #0f172a;">Threat Details</h3>
-                <p><strong>Type:</strong> {threat.get('scenario', {}).get('type')}</p>
-                <p><strong>Severity:</strong> <span style="font-weight: bold; color: {
-                    '#dc3545' if threat.get('risk_level') in ['CRITICAL', 'HIGH'] else '#ffc107'
-                }">{threat.get('risk_level')}</span></p>
-                <p><strong>Risk Score:</strong> {threat.get('risk_score')}/100</p>
-                
-                <div style="background-color: #fff; padding: 15px; border-left: 4px solid #dc3545; margin: 15px 0;">
-                    <strong>Description:</strong><br>
-                    {threat.get('scenario', {}).get('description')}
-                </div>
-                
-                <h4>Recommended Actions:</h4>
-                <ul>
-                    {''.join(f'<li>{rec}</li>' for rec in threat.get('recommendations', []))}
-                </ul>
-                
-                <p style="font-size: 12px; color: #666; margin-top: 30px;">
-                    This is an automated alert from your AI-Powered Threat Detection System. 
-                    Please do not reply to this email.
-                </p>
-            </div>
-          </body>
-        </html>
-        """
-
-        part = MIMEText(html, "html")
-        message.attach(part)
-
         try:
+            print("Preparing to send email alert...", file=sys.stdout)
+            sys.stdout.flush()
+            
+            smtp_server = "smtp.gmail.com"
+            port = 587  # For starttls
+            sender_email = os.environ.get("MAIL_USERNAME")
+            password = os.environ.get("MAIL_PASSWORD")
+            receiver_email = os.environ.get("MAIL_RECIPIENT", sender_email)
+
+            if not sender_email or not password:
+                print("❌ ERROR: Email credentials (MAIL_USERNAME/MAIL_PASSWORD) not set.", file=sys.stdout)
+                sys.stdout.flush()
+                return
+
+            message = MIMEMultipart("alternative")
+            message["Subject"] = f"🚨 CRITICAL ALERT: {threat.get('risk_score')} Risk Score - {threat.get('scenario', {}).get('type')}"
+            message["From"] = sender_email
+            message["To"] = receiver_email
+
+            # Create the HTML version of your message
+            html = f"""\
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px solid #ddd;">
+                    <h2 style="color: #b91c1c;">⚠️ Critical Security Alert</h2>
+                    <p><strong>Time:</strong> {threat.get('timestamp')}</p>
+                    <hr>
+                    
+                    <h3 style="color: #0f172a;">Threat Analysis</h3>
+                    <p><strong>Type:</strong> {threat.get('scenario', {}).get('type')}</p>
+                    <p><strong>Risk Score:</strong> <span style="font-size: 1.2em; font-weight: bold; color: #b91c1c;">{threat.get('risk_score')}/100</span></p>
+                    <p><strong>Severity:</strong> {threat.get('risk_level')}</p>
+                    
+                    <div style="background-color: #fff; padding: 15px; border-left: 5px solid #b91c1c; margin: 15px 0;">
+                        <strong>Description:</strong><br>
+                        {threat.get('scenario', {}).get('description')}
+                    </div>
+                    
+                    <h4>Recommended Response:</h4>
+                    <ul>
+                        {''.join(f'<li>{rec}</li>' for rec in threat.get('recommendations', []))}
+                    </ul>
+                </div>
+              </body>
+            </html>
+            """
+
+            part = MIMEText(html, "html")
+            message.attach(part)
+
             context = ssl.create_default_context()
             with smtplib.SMTP(smtp_server, port) as server:
-                server.ehlo()  # Can be omitted
+                server.ehlo()
                 server.starttls(context=context)
-                server.ehlo()  # Can be omitted
+                server.ehlo()
                 server.login(sender_email, password)
                 server.sendmail(sender_email, receiver_email, message.as_string())
-            print(f"Email alert sent successfully to {receiver_email}")
+            
+            print(f"✅ Email alert sent successfully to {receiver_email}", file=sys.stdout)
+            sys.stdout.flush()
+            
         except Exception as e:
-            print(f"Failed to send email alert: {e}")
+            print(f"❌ Failed to send email alert: {str(e)}", file=sys.stdout)
+            # Print full trace for debugging if needed
+            import traceback
+            traceback.print_exc(file=sys.stdout)
+            sys.stdout.flush()
 
-    # Start email sending in background
-    email_thread = threading.Thread(target=_send_email_thread, args=(threat_data,))
-    email_thread.daemon = True
-    email_thread.start()
+    # Only send if Risk Score >= 90
+    risk_score = threat_data.get('risk_score', 0)
+    if risk_score >= 90:
+        print(f"⚠️ High Risk Threat Detected (Score: {risk_score}). Initiating email alert...", file=sys.stdout)
+        sys.stdout.flush()
+        # Start email sending in background
+        email_thread = threading.Thread(target=_send_email_thread, args=(threat_data,))
+        email_thread.daemon = True
+        email_thread.start()
+    else:
+        print(f"ℹ️ Risks score {risk_score} < 90. Email alert skipped.", file=sys.stdout)
+        sys.stdout.flush()
+
+# ... existing generate_mock_threat ...
+
+@app.route('/api/demo-login', methods=['POST'])
+def demo_login():
+    data = request.json
+    attempts = data.get('attempts', 0)
+    
+    if attempts >= 3:
+        threat = generate_mock_threat("login_bruteforce")
+        
+        # Save to DB if connected, else memory
+        if db_manager.is_connected:
+            db_manager.insert_threat(threat)
+        else:
+            THREAT_HISTORY.append(threat)
+            
+        # Emit socket event
+        socketio.emit('new_threat', threat)
+        
+        # Trigger Email Alert (Check logic moved inside function)
+        send_email_alert(threat)
+        
+        return jsonify({"status": "threat_detected", "threat": threat})
+    
+    return jsonify({"status": "failed", "message": "Invalid credentials"})
+
+@app.route('/api/test-email', methods=['POST'])
+def test_email():
+    """Endpoint to verify email configuration independent of threat logic"""
+    try:
+        mock_threat = {
+            "timestamp": datetime.now().isoformat(),
+            "risk_score": 99,
+            "risk_level": "TEST_CRITICAL",
+            "scenario": {"type": "Manual Email Test", "description": "User requested verification of email system."},
+            "recommendations": ["Verify email receipt"]
+        }
+        send_email_alert(mock_threat)
+        return jsonify({"status": "Email test initiated. Check server logs."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ... rest of file (get_threats, get_stats, etc)
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())

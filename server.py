@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -23,12 +20,12 @@ app = Flask(__name__)
 # Allow all origins for CORS
 CORS(app, resources={r"/*": {"origins": "*", "allow_headers": "*", "expose_headers": "*"}})
 
-# Initialize SocketIO with permissive CORS
+# Initialize SocketIO with threading mode (compatible with standard gunicorn sync workers)
 socketio = SocketIO(app, 
                    cors_allowed_origins="*", 
                    logger=True, 
                    engineio_logger=True,
-                   async_mode='eventlet')
+                   async_mode='threading')
 
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []

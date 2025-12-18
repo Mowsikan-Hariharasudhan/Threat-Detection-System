@@ -8,7 +8,11 @@ import random
 import uuid
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 from db import db_manager
+
+# Load environment variables
+load_dotenv()
 
 # ML models removed as per user request
 HAS_ML_MODELS = False
@@ -225,11 +229,35 @@ def get_threat_explanation(threat_id):
 
 
 
+def background_threat_generator():
+    """Generates random security threats in the background."""
+    print("Background threat generator started...")
+    while True:
+        # Sleep for a random interval between 10 and 30 seconds
+        time.sleep(random.randint(10, 30))
+        
+        # Generate a random threat
+        threat = generate_mock_threat("random")
+        
+        # Save and emit
+        if db_manager.is_connected:
+            db_manager.insert_threat(threat)
+        else:
+            THREAT_HISTORY.append(threat)
+            
+        print(f"Generated background threat: {threat['scenario']['type']}")
+        socketio.emit('new_threat', threat)
+        
+        # Send alert if critical
+        if threat['risk_level'] == 'CRITICAL':
+            send_threat_alert(threat)
+
 if __name__ == '__main__':
     print("Starting Cybersecurity Threat Detection Server...")
-    # Background threat generator disabled as per user request
-    # t = threading.Thread(target=background_threat_generator)
-    # t.daemon = True
-    # t.start()
+    
+    # Start background threat generator
+    t = threading.Thread(target=background_threat_generator)
+    t.daemon = True
+    t.start()
     
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)

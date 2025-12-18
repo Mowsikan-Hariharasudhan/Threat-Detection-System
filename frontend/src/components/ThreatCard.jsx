@@ -95,7 +95,7 @@ const ThreatCard = ({ threat }) => {
           <Lock size={18} style={{ marginRight: '0.5rem', verticalAlign: 'text-bottom' }} />
           Recommended Actions
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
           {recommendations && recommendations.map((action, index) => (
             <div key={index} style={{
               display: 'flex',
@@ -124,6 +124,36 @@ const ThreatCard = ({ threat }) => {
           ))}
         </div>
       </div>
+
+      {threat.automated_actions && threat.automated_actions.length > 0 && (
+        <div style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', border: '1px solid var(--accent-red)' }}>
+          <h3 style={{ color: 'var(--accent-red)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <Server size={20} />
+            AUTOMATED RESPONSE ENABLED
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            {threat.automated_actions.map((action, idx) => (
+              <div key={idx} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: '#f8fafc',
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                padding: '0.75rem',
+                borderRadius: '0.5rem',
+                fontWeight: '600',
+                fontSize: '0.9rem'
+              }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent-red)', boxShadow: '0 0 5px var(--accent-red)' }}></div>
+                {action.replace(/_/g, ' ')}
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--accent-red)', opacity: 0.8 }}>
+            * System has automatically executed these containment protocols.
+          </div>
+        </div>
+      )}
     </div>
   );
 };

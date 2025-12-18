@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
+from flask_mail import Mail, Message
 import time
 import threading
 import random
@@ -16,6 +17,16 @@ app = Flask(__name__)
 # Allow all origins for CORS
 CORS(app, resources={r"/*": {"origins": "*", "allow_headers": "*", "expose_headers": "*"}})
 
+# Email Configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
+
+mail = Mail(app)
+
 # Initialize SocketIO with permissive CORS
 socketio = SocketIO(app, 
                    cors_allowed_origins="*", 
@@ -26,11 +37,61 @@ socketio = SocketIO(app,
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []
 
+def send_threat_alert(threat):
+    """Sends an email alert to the security team."""
+    try:
+        # Determine strictness: Send validation email for invalid config
+        if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
+            print("Skipping email alert: Gmail credentials not configured.")
+            return
+
+        subject = f"🚨 SECURITY ALERT: {threat['risk_level']} Threat Detected"
+        
+        body = f"""
+        Warning: A security threat has been detected.
+        
+        --------------------------------------------------
+        Threat Type: {threat['scenario']['type']}
+        Severity: {threat['risk_level']}
+        Risk Score: {threat['risk_score']}/100
+        Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        --------------------------------------------------
+        
+        Description:
+        {threat['scenario']['description']}
+        
+        Recommended Actions:
+        {chr(10).join(['- ' + action for action in threat.get('recommendations', [])])}
+        
+        Please investigate immediately.
+        
+        - CyberGuard AI System
+        """
+        
+        msg = Message(subject=subject,
+                      recipients=[app.config['MAIL_USERNAME']], # Send to self/admin
+                      body=body)
+        
+        # Run in a separate thread to not block the main process
+        threading.Thread(target=send_async_email, args=(app, msg)).start()
+        print(f"Alert email queued for threat {threat['id']}")
+        
+    except Exception as e:
+        print(f"Failed to queue email alert: {str(e)}")
+
+def send_async_email(app, msg):
+    with app.app_context():
+        try:
+            mail.send(msg)
+            print("Alert email sent successfully!")
+        except Exception as e:
+            print(f"Failed to send alert email: {str(e)}")
+
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
     
     if type == "login_bruteforce":
-        return {
+        threat = {
             "id": threat_id,
             "timestamp": datetime.now().isoformat(),
             "risk_score": random.randint(85, 99),
@@ -55,6 +116,7 @@ def generate_mock_threat(type="network"):
             ],
             "confidence": 98.5
         }
+        return threat
     
     # Random threat generation
     risk_score = random.randint(40, 95)
@@ -83,7 +145,7 @@ def generate_mock_threat(type="network"):
     
     scenario = random.choice(scenarios)
     
-    return {
+    threat = {
         "id": threat_id,
         "timestamp": datetime.now().isoformat(),
         "risk_score": risk_score,
@@ -103,6 +165,7 @@ def generate_mock_threat(type="network"):
         ][:random.randint(3, 5)],
         "confidence": round(random.uniform(80, 99), 1)
     }
+    return threat
 
 @app.route('/api/demo-login', methods=['POST'])
 def demo_login():
@@ -119,6 +182,10 @@ def demo_login():
             THREAT_HISTORY.append(threat)
             
         socketio.emit('new_threat', threat)
+        
+        # Trigger Email Alert
+        send_threat_alert(threat)
+        
         return jsonify({"status": "threat_detected", "threat": threat})
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})

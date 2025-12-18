@@ -88,14 +88,8 @@ const Dashboard = () => {
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <div className="card" style={{ padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{
-                            width: '10px', height: '10px', borderRadius: '50%',
-                            backgroundColor: isConnected ? 'var(--status-low)' : 'var(--status-critical)',
-                            boxShadow: isConnected ? '0 0 10px var(--status-low)' : 'none'
-                        }} />
-                        <span style={{ fontSize: '0.875rem', fontWeight: '600', color: isConnected ? 'var(--status-low)' : 'var(--status-critical)' }}>
-                            {isConnected ? 'SYSTEM ONLINE' : 'DISCONNECTED'}
-                        </span>
+
+
                     </div>
                 </div>
             </header>
@@ -141,7 +135,7 @@ const Dashboard = () => {
                     </div>
                 ) : currentThreat ? (
                     <div className="fade-in">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
+                        <div className="header-mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
                             <div>
                                 <h2 style={{ margin: 0 }}>Live Threat Analysis</h2>
                             </div>

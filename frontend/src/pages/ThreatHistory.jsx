@@ -50,7 +50,7 @@ const ThreatHistory = () => {
                     <h1 className="text-gradient">Threat History</h1>
                     <p style={{ color: 'var(--text-secondary)' }}>Comprehensive log of all detected security events</p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                     <button onClick={() => generateGlobalReport(threats)} className="btn btn-primary">
                         <FileDown size={18} />
                         Download Global Report

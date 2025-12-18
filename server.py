@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -11,6 +8,7 @@ import uuid
 from datetime import datetime
 import os
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from db import db_manager
@@ -32,51 +30,81 @@ socketio = SocketIO(app,
 # Fallback in-memory storage if DB is not connected
 THREAT_HISTORY = []
 
-# Email Configuration
-EMAIL_SENDER = os.getenv('EMAIL_USER')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASS')
-EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', EMAIL_SENDER) # Default to self if not set
+def send_email_alert(threat_data):
+    """
+    Sends an email alert for a detected threat.
+    Runs in a separate thread to avoid blocking the main execution.
+    """
+    def _send_email_thread(threat):
+        smtp_server = "smtp.gmail.com"
+        port = 587  # For starttls
+        sender_email = os.environ.get("MAIL_USERNAME")
+        password = os.environ.get("MAIL_PASSWORD")
+        receiver_email = os.environ.get("MAIL_RECIPIENT", sender_email) # Default to self if not set
 
-def send_alert_email(threat):
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
-        print("Skipping email alert: Credentials not found.")
-        return
+        if not sender_email or not password:
+            print("Email credentials not set. Skipping email alert.")
+            return
 
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_SENDER
-        msg['To'] = EMAIL_RECEIVER
-        msg['Subject'] = f"🚨 Security Alert: {threat.get('scenario', {}).get('type', 'Unknown Threat')}"
+        message = MIMEMultipart("alternative")
+        message["Subject"] = f"🚨 ALERT: {threat.get('risk_level', 'UNKNOWN')} Threat Detected - {threat.get('scenario', {}).get('type', 'Unknown')}"
+        message["From"] = sender_email
+        message["To"] = receiver_email
 
-        body = f"""
-        CYBERGUARD SECURITY ALERT
-        =========================
-        
-        Risk Level: {threat.get('risk_level')}
-        Risk Score: {threat.get('risk_score')}/100
-        Timestamp: {threat.get('timestamp')}
-        
-        Threat Type: {threat.get('scenario', {}).get('type')}
-        Description: {threat.get('scenario', {}).get('description')}
-        
-        Recommended Actions:
-        {chr(10).join(['- ' + r for r in threat.get('recommendations', [])])}
-        
-        --
-        This is an automated message from your Threat Detection System.
+        # Create the HTML version of your message
+        html = f"""\
+        <html>
+          <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
+                <h2 style="color: #dc3545;">Security Incident Detected</h2>
+                <p><strong>System Time:</strong> {threat.get('timestamp')}</p>
+                <hr>
+                
+                <h3 style="color: #0f172a;">Threat Details</h3>
+                <p><strong>Type:</strong> {threat.get('scenario', {}).get('type')}</p>
+                <p><strong>Severity:</strong> <span style="font-weight: bold; color: {
+                    '#dc3545' if threat.get('risk_level') in ['CRITICAL', 'HIGH'] else '#ffc107'
+                }">{threat.get('risk_level')}</span></p>
+                <p><strong>Risk Score:</strong> {threat.get('risk_score')}/100</p>
+                
+                <div style="background-color: #fff; padding: 15px; border-left: 4px solid #dc3545; margin: 15px 0;">
+                    <strong>Description:</strong><br>
+                    {threat.get('scenario', {}).get('description')}
+                </div>
+                
+                <h4>Recommended Actions:</h4>
+                <ul>
+                    {''.join(f'<li>{rec}</li>' for rec in threat.get('recommendations', []))}
+                </ul>
+                
+                <p style="font-size: 12px; color: #666; margin-top: 30px;">
+                    This is an automated alert from your AI-Powered Threat Detection System. 
+                    Please do not reply to this email.
+                </p>
+            </div>
+          </body>
+        </html>
         """
-        
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        text = msg.as_string()
-        server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, text)
-        server.quit()
-        print(f"Alert email sent to {EMAIL_RECEIVER}")
-    except Exception as e:
-        print(f"Failed to send email: {e}")
+
+        part = MIMEText(html, "html")
+        message.attach(part)
+
+        try:
+            context = ssl.create_default_context()
+            with smtplib.SMTP(smtp_server, port) as server:
+                server.ehlo()  # Can be omitted
+                server.starttls(context=context)
+                server.ehlo()  # Can be omitted
+                server.login(sender_email, password)
+                server.sendmail(sender_email, receiver_email, message.as_string())
+            print(f"Email alert sent successfully to {receiver_email}")
+        except Exception as e:
+            print(f"Failed to send email alert: {e}")
+
+    # Start email sending in background
+    email_thread = threading.Thread(target=_send_email_thread, args=(threat_data,))
+    email_thread.daemon = True
+    email_thread.start()
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -164,40 +192,19 @@ def demo_login():
     if attempts >= 3:
         threat = generate_mock_threat("login_bruteforce")
         
-        # --- Automated Response System (>90% Score) ---
-        response_actions = []
-        if threat['risk_score'] > 90:
-            print(f"CRITICAL THREAT DETECTED (Score: {threat['risk_score']}). Initiating automated response...")
-            
-            # Action 1: Block IP (Simulation)
-            threat['mitigation_status'] = "Active"
-            response_actions.append("BLOCK_IP_ADDRESS")
-            
-            # Action 2: Revoke Session (Simulation)
-            response_actions.append("REVOKE_SESSION")
-            
-            # Action 3: Force Password Reset (Simulation)
-            response_actions.append("FORCE_PASSWORD_RESET")
-            
-            # Append actions to threat data for frontend display
-            threat['automated_actions'] = response_actions
-            
-        # Send Email Alert (For ALL threats as requested)
-        # Run in background thread to not block response
-        threading.Thread(target=send_alert_email, args=(threat,)).start()
-
         # Save to DB if connected, else memory
         if db_manager.is_connected:
             db_manager.insert_threat(threat)
         else:
             THREAT_HISTORY.append(threat)
             
+        # Emit socket event
         socketio.emit('new_threat', threat)
-        return jsonify({
-            "status": "threat_detected", 
-            "threat": threat,
-            "automated_responses": response_actions if threat['risk_score'] > 90 else []
-        })
+        
+        # Trigger Email Alert
+        send_email_alert(threat)
+        
+        return jsonify({"status": "threat_detected", "threat": threat})
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})
 
@@ -234,80 +241,10 @@ def get_threat_explanation(threat_id):
         return jsonify(threat)
     return jsonify({"error": "Threat not found"}), 404
 
-@app.route('/api/debug/test-email', methods=['POST'])
-def debug_email():
-    """
-    Debug endpoint to test email configuration and sending.
-    Returns detailed logs of the attempt.
-    """
-    sender = os.getenv('EMAIL_USER')
-    password = os.getenv('EMAIL_PASS')
-    receiver = os.getenv('EMAIL_RECEIVER', sender)
-    
-    if not sender or not password:
-        return jsonify({
-            "status": "error", 
-            "message": "Missing credentials", 
-            "debug": {
-                "EMAIL_USER_SET": bool(sender),
-                "EMAIL_PASS_SET": bool(password)
-            }
-        }), 400
 
-    try:
-        # Construct Test Email
-        msg = MIMEMultipart()
-        msg['From'] = sender
-        msg['To'] = receiver
-        msg['Subject'] = "🧪 CyberGuard AI: Test Email"
-        body = "This is a test email to verify your SMTP configuration is working correctly."
-        msg.attach(MIMEText(body, 'plain'))
-        
-        # Connect to Server
-        print(f"Connecting to SMTP server (smtp.gmail.com:587)...")
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.set_debuglevel(1) # Enable verbose output for logs
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        
-        # Login
-        print(f"Attempting login as {sender}...")
-        server.login(sender, password)
-        
-        # Send
-        print(f"Sending mail to {receiver}...")
-        server.sendmail(sender, receiver, msg.as_string())
-        server.quit()
-        
-        return jsonify({
-            "status": "success", 
-            "message": f"Email sent successfully to {receiver}",
-            "config": {"sender": sender, "receiver": receiver}
-        })
-        
-    except smtplib.SMTPAuthenticationError as e:
-        return jsonify({
-            "status": "error",
-            "error_type": "Authentication Failed",
-            "message": "Google refused the login. Ensure you are using an App Password, not your login password.",
-            "details": str(e)
-        }), 401
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "error_type": type(e).__name__,
-            "message": str(e)
-        }), 500
 
 if __name__ == '__main__':
     print("Starting Cybersecurity Threat Detection Server...")
-    # Print environment check (Masked)
-    if os.getenv('EMAIL_USER'):
-        print(f"Email Configured: YES (User: {os.getenv('EMAIL_USER')})")
-    else:
-        print("Email Configured: NO (EMAIL_USER not found)")
-
     # Background threat generator disabled as per user request
     # t = threading.Thread(target=background_threat_generator)
     # t.daemon = True

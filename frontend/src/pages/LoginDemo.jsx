@@ -156,33 +156,8 @@ const LoginDemo = () => {
                     )}
                 </div>
 
-                {/* Email Debug Button (For Testing Only) */}
-                <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                    <button
-                        onClick={async () => {
-                            try {
-                                const res = await axios.post(`${config.API_URL}/api/debug/test-email`);
-                                alert("✅ Success: " + res.data.message);
-                            } catch (err) {
-                                alert("❌ Error: " + (err.response?.data?.message || err.message));
-                            }
-                        }}
-                        style={{
-                            background: 'transparent',
-                            border: '1px dashed var(--border-color)',
-                            color: 'var(--text-secondary)',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem'
-                        }}
-                    >
-                        🛠️ Test Email Configuration
-                    </button>
-                    <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.5rem' }}>
-                        Click to verify backend email settings
-                    </p>
-                </div>
+                {/* Threat Display Section Removed for Production Realism */}
+                {/* The threat is still sent to backend and visible on Dashboard */}
 
             </div>
         </div>

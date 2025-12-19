@@ -104,6 +104,16 @@ def send_threat_notification(threat):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
+def handle_threat(threat):
+    """
+    Centralized handler for all detected threats.
+    This function will be expanded to include other response actions.
+    """
+    # Send Email Notification Async
+    # We start a new thread to avoid blocking the response
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
     
@@ -198,10 +208,7 @@ def demo_login():
             
         socketio.emit('new_threat', threat)
         
-        # Send Email Notification Async
-        # We start a new thread to avoid blocking the response
-        email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
-        email_thread.start()
+        handle_threat(threat)
         
         return jsonify({"status": "threat_detected", "threat": threat})
     
@@ -241,12 +248,32 @@ def get_threat_explanation(threat_id):
     return jsonify({"error": "Threat not found"}), 404
 
 
+def background_threat_generator():
+    """Simulates real-time threat detection."""
+    print("Background threat generator started...")
+    while True:
+        time.sleep(random.randint(15, 45))
+
+        threat = generate_mock_threat()
+        print(f"💥 New threat generated: {threat['scenario']['type']} (Score: {threat['risk_score']})")
+
+        # Save to DB or in-memory
+        if db_manager.is_connected:
+            db_manager.insert_threat(threat)
+        else:
+            THREAT_HISTORY.append(threat)
+
+        # Emit to frontend
+        socketio.emit('new_threat', threat)
+
+        # Handle threat (sends email)
+        handle_threat(threat)
+
 
 if __name__ == '__main__':
     print("Starting Cybersecurity Threat Detection Server...")
-    # Background threat generator disabled as per user request
-    # t = threading.Thread(target=background_threat_generator)
-    # t.daemon = True
-    # t.start()
+    t = threading.Thread(target=background_threat_generator)
+    t.daemon = True
+    t.start()
     
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)

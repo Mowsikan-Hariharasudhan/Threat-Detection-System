@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT', app.config['MAIL_USERNAME'])
             
             msg = Message(subject, recipients=[recipient])
             
@@ -103,6 +103,36 @@ def send_threat_notification(threat):
 
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+def handle_threat(threat):
+    """
+    Centralized function to process a detected threat.
+    - Saves to DB
+    - Emits socket event
+    - Sends notifications
+    - (Future) Triggers automated responses
+    """
+    print(f"🚨 Handling threat: {threat['id']} - {threat['scenario']['type']}")
+
+    # 1. Save to DB or in-memory fallback
+    if db_manager.is_connected:
+        db_manager.insert_threat(threat)
+    else:
+        THREAT_HISTORY.append(threat)
+
+    # 2. Emit real-time update to frontend
+    socketio.emit('new_threat', threat)
+
+    # 3. Send email notification asynchronously
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    # --- Future response actions will be added here ---
+    if threat['risk_score'] > 90:
+        print(f"🔥 High-risk threat detected. Initiating automated response for {threat['id']}.")
+        # block_ip(threat)
+        # revoke_session(threat)
+        # force_password_reset(threat)
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -189,20 +219,7 @@ def demo_login():
     
     if attempts >= 3:
         threat = generate_mock_threat("login_bruteforce")
-        
-        # Save to DB if connected, else memory
-        if db_manager.is_connected:
-            db_manager.insert_threat(threat)
-        else:
-            THREAT_HISTORY.append(threat)
-            
-        socketio.emit('new_threat', threat)
-        
-        # Send Email Notification Async
-        # We start a new thread to avoid blocking the response
-        email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
-        email_thread.start()
-        
+        handle_threat(threat)  # Centralized handling
         return jsonify({"status": "threat_detected", "threat": threat})
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})

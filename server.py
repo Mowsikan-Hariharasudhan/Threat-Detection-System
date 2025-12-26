@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT', app.config['MAIL_USERNAME'])
             
             msg = Message(subject, recipients=[recipient])
             
@@ -103,6 +103,27 @@ def send_threat_notification(threat):
 
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+def handle_threat(threat):
+    """
+    Centralized function to handle all detected threats.
+    It orchestrates the response based on the threat's characteristics.
+    """
+    print(f"🚨 New threat detected: {threat['id']} - {threat['scenario']['type']}")
+
+    # --- 1. Notify Security Team (for all threats) ---
+    # We start a new thread to avoid blocking the response
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    # --- 2. Automated Response (for high-risk threats) ---
+    if threat.get('risk_score', 0) > 90:
+        print(f"🔥 High-risk threat detected ({threat['risk_score']}). Initiating automated response...")
+        # TODO: Implement automated responses
+        # - Block IP Address
+        # - Revoke Active Sessions
+        # - Force Password Reset
+        pass
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -198,10 +219,8 @@ def demo_login():
             
         socketio.emit('new_threat', threat)
         
-        # Send Email Notification Async
-        # We start a new thread to avoid blocking the response
-        email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
-        email_thread.start()
+        # Centralized threat handling
+        handle_threat(threat)
         
         return jsonify({"status": "threat_detected", "threat": threat})
     

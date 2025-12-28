@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT', app.config['MAIL_USERNAME'])
             
             msg = Message(subject, recipients=[recipient])
             
@@ -103,6 +103,62 @@ def send_threat_notification(threat):
 
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+
+# --- Automated Threat Response ---
+
+def block_ip(threat_details):
+    """Placeholder for IP blocking logic."""
+    ip_address = threat_details.get('source_ip', 'N/A')
+    print(f"⛔ ACTION: Blocking IP address {ip_address}")
+    # In a real system, this would interact with a firewall or proxy API.
+    pass
+
+def revoke_session(threat_details):
+    """Placeholder for revoking user sessions."""
+    user_id = threat_details.get('user_id', 'N/A')
+    print(f"🚪 ACTION: Revoking active sessions for user {user_id}")
+    # This would involve API calls to your authentication service to invalidate tokens.
+    pass
+
+def force_password_reset(threat_details):
+    """Placeholder for forcing a password reset."""
+    user_id = threat_details.get('user_id', 'N/A')
+    print(f"🔐 ACTION: Forcing password reset for user {user_id}")
+    # This would typically set a flag in the user database that requires a password change on next login.
+    pass
+
+
+def handle_threat(threat):
+    """
+    Centralized function to process a detected threat.
+    - Saves the threat to the database.
+    - Emits a socket event.
+    - Sends an email notification.
+    - Triggers automated responses for high-risk threats.
+    """
+    print(f"Handling threat: {threat['scenario']['type']} (Risk: {threat['risk_score']})")
+
+    # 1. Save to DB or in-memory list
+    if db_manager.is_connected:
+        db_manager.insert_threat(threat)
+    else:
+        THREAT_HISTORY.append(threat)
+
+    # 2. Emit socket event to frontend
+    socketio.emit('new_threat', threat)
+
+    # 3. Send email notification asynchronously
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    # 4. Trigger automated responses for critical threats
+    if threat['risk_score'] > 90:
+        print(f"CRITICAL THREAT DETECTED. Risk score: {threat['risk_score']}. Triggering automated responses.")
+        block_ip(threat)
+        revoke_session(threat)
+        force_password_reset(threat)
+
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -189,20 +245,7 @@ def demo_login():
     
     if attempts >= 3:
         threat = generate_mock_threat("login_bruteforce")
-        
-        # Save to DB if connected, else memory
-        if db_manager.is_connected:
-            db_manager.insert_threat(threat)
-        else:
-            THREAT_HISTORY.append(threat)
-            
-        socketio.emit('new_threat', threat)
-        
-        # Send Email Notification Async
-        # We start a new thread to avoid blocking the response
-        email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
-        email_thread.start()
-        
+        handle_threat(threat)  # Use the centralized handler
         return jsonify({"status": "threat_detected", "threat": threat})
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})

@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT', app.config['MAIL_USERNAME'])
             
             msg = Message(subject, recipients=[recipient])
             
@@ -103,6 +103,47 @@ def send_threat_notification(threat):
 
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+
+def handle_threat(threat):
+    """
+    Centralized function to process a detected threat.
+    - Saves the threat to the database.
+    - Emits a socket event to notify the frontend.
+    - Sends an email notification to the security team.
+    - Triggers automated responses if the risk score is high.
+    """
+    print(f"Processing threat: {threat['id']} - Risk Score: {threat['risk_score']}")
+
+    # 1. Save to DB or in-memory fallback
+    if db_manager.is_connected:
+        db_manager.insert_threat(threat)
+    else:
+        THREAT_HISTORY.append(threat)
+
+    # 2. Notify frontend via SocketIO
+    socketio.emit('new_threat', threat)
+
+    # 3. Send email notification for all threats (asynchronously)
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    # 4. Trigger automated responses for high-risk threats
+    if threat['risk_score'] > 90:
+        print(f"HIGH-RISK THREAT DETECTED ({threat['risk_score']}). Initiating automated response.")
+
+        # In a real system, these would be function calls to other modules
+        # For now, we'll just print the actions
+
+        # Action: Block IP Address
+        print("ACTION: Blocking IP address...")
+
+        # Action: Revoke Active Sessions
+        print("ACTION: Revoking active user sessions...")
+
+        # Action: Force Password Reset
+        print("ACTION: Forcing password reset for affected user...")
+
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -190,18 +231,8 @@ def demo_login():
     if attempts >= 3:
         threat = generate_mock_threat("login_bruteforce")
         
-        # Save to DB if connected, else memory
-        if db_manager.is_connected:
-            db_manager.insert_threat(threat)
-        else:
-            THREAT_HISTORY.append(threat)
-            
-        socketio.emit('new_threat', threat)
-        
-        # Send Email Notification Async
-        # We start a new thread to avoid blocking the response
-        email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
-        email_thread.start()
+        # Process the threat using the centralized handler
+        handle_threat(threat)
         
         return jsonify({"status": "threat_detected", "threat": threat})
     

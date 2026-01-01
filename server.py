@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT', app.config['MAIL_USERNAME'])
             
             msg = Message(subject, recipients=[recipient])
             
@@ -182,6 +182,28 @@ def generate_mock_threat(type="network"):
         "confidence": round(random.uniform(80, 99), 1)
     }
 
+def handle_threat(threat):
+    """
+    Centralized function to process a detected threat.
+    - Saves to DB (or memory)
+    - Emits a SocketIO event
+    - Sends an email notification
+    """
+    # Save to DB if connected, else memory
+    if db_manager.is_connected:
+        db_manager.insert_threat(threat)
+    else:
+        THREAT_HISTORY.append(threat)
+
+    # Emit real-time update
+    socketio.emit('new_threat', threat)
+
+    # Send email notification in a separate thread
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    print(f"Processed threat {threat['id']} - {threat['scenario']['type']}")
+
 @app.route('/api/demo-login', methods=['POST'])
 def demo_login():
     data = request.json
@@ -189,23 +211,30 @@ def demo_login():
     
     if attempts >= 3:
         threat = generate_mock_threat("login_bruteforce")
-        
-        # Save to DB if connected, else memory
-        if db_manager.is_connected:
-            db_manager.insert_threat(threat)
-        else:
-            THREAT_HISTORY.append(threat)
-            
-        socketio.emit('new_threat', threat)
-        
-        # Send Email Notification Async
-        # We start a new thread to avoid blocking the response
-        email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
-        email_thread.start()
-        
+        handle_threat(threat)
         return jsonify({"status": "threat_detected", "threat": threat})
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})
+
+@app.route('/api/simulate-threat', methods=['POST'])
+def simulate_threat():
+    """
+    Endpoint to manually trigger and test the threat handling system.
+    Accepts a mock threat object in the request body.
+    """
+    threat_data = request.json
+
+    # Basic validation
+    if not threat_data or 'scenario' not in threat_data:
+        return jsonify({"error": "Invalid threat data"}), 400
+
+    # Add required fields if missing
+    threat_data['id'] = threat_data.get('id', str(uuid.uuid4()))
+    threat_data['timestamp'] = threat_data.get('timestamp', datetime.now().isoformat())
+
+    handle_threat(threat_data)
+
+    return jsonify({"status": "threat_simulation_triggered", "threat": threat_data})
 
 @app.route('/api/threats', methods=['GET'])
 def get_threats():

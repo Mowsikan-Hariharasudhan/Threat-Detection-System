@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT', app.config['MAIL_USERNAME'])
             
             msg = Message(subject, recipients=[recipient])
             
@@ -239,6 +239,29 @@ def get_threat_explanation(threat_id):
     if threat:
         return jsonify(threat)
     return jsonify({"error": "Threat not found"}), 404
+
+
+@app.route('/api/simulate-threat', methods=['POST'])
+def simulate_threat():
+    """Endpoint to manually trigger a threat simulation and notification."""
+    # Generate a mock threat of a random type
+    threat = generate_mock_threat()
+
+    # Save to DB or in-memory list
+    if db_manager.is_connected:
+        db_manager.insert_threat(threat)
+    else:
+        THREAT_HISTORY.append(threat)
+
+    # Emit to frontend via SocketIO
+    socketio.emit('new_threat', threat)
+
+    # Send email notification in a separate thread
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    print(f"Simulated threat: {threat['id']}")
+    return jsonify({"status": "simulated_threat_triggered", "threat_id": threat['id']})
 
 
 

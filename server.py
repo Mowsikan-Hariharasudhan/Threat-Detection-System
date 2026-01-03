@@ -19,9 +19,9 @@ app = Flask(__name__)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL_USER')
-app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('EMAIL_USER')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 mail = Mail(app)
 
@@ -50,7 +50,7 @@ def send_threat_notification(threat):
             subject = f"🚨 Security Alert: {threat['scenario']['type']} Detected"
             
             # Recipient: For now, sending to the admin (same as sender or configured separately)
-            recipient = os.environ.get('SECURITY_TEAM_EMAIL', app.config['MAIL_USERNAME'])
+            recipient = os.environ.get('MAIL_RECIPIENT')
             
             msg = Message(subject, recipients=[recipient])
             
@@ -103,6 +103,22 @@ def send_threat_notification(threat):
 
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+def handle_automated_response(threat):
+    """Triggers automated responses if the threat score is critical."""
+    if threat.get('risk_score', 0) > 90:
+        print(f"🔥 CRITICAL THREAT DETECTED (Score: {threat['risk_score']}). Initiating automated response.")
+
+        # For now, we'll just log the intended actions.
+        print("  - ⛔ Action: BLOCK IP ADDRESS (simulated)")
+        print("  - 🚪 Action: REVOKE ACTIVE SESSIONS (simulated)")
+        print("  - 🔐 Action: FORCE PASSWORD RESET (simulated)")
+
+        # Notify the frontend about the automated response
+        socketio.emit('automated_response', {
+            'threat_id': threat['id'],
+            'actions': ['BLOCK IP ADDRESS', 'REVOKE ACTIVE SESSIONS', 'FORCE PASSWORD RESET']
+        })
 
 def generate_mock_threat(type="network"):
     threat_id = str(uuid.uuid4())
@@ -203,9 +219,35 @@ def demo_login():
         email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
         email_thread.start()
         
+        # Trigger automated response if necessary
+        handle_automated_response(threat)
+
         return jsonify({"status": "threat_detected", "threat": threat})
     
     return jsonify({"status": "failed", "message": "Invalid credentials"})
+
+@app.route('/api/simulate-threat', methods=['POST'])
+def simulate_threat():
+    """Endpoint to manually trigger a simulated threat for testing."""
+    threat = generate_mock_threat()
+
+    # Save to DB or in-memory
+    if db_manager.is_connected:
+        db_manager.insert_threat(threat)
+    else:
+        THREAT_HISTORY.append(threat)
+
+    # Notify frontend via WebSocket
+    socketio.emit('new_threat', threat)
+
+    # Send email notification asynchronously
+    email_thread = threading.Thread(target=send_threat_notification, args=(threat,))
+    email_thread.start()
+
+    # Also trigger automated response for simulated threats
+    handle_automated_response(threat)
+
+    return jsonify({"status": "threat_simulated", "threat_id": threat['id']})
 
 @app.route('/api/threats', methods=['GET'])
 def get_threats():
